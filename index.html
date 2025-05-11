@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NextAgenda</title>
+  <style>
+    /* Genel Reset ve Stil */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; line-height: 1.6; }
+    nav.top-bar {
+      position: fixed; top: 0; left: 0; width: 100%;
+      background: green; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      display: flex; justify-content: center; padding: 10px; z-index: 1000;
+    }
+    .nav-btn {
+      width: 60px; height: 60px; margin: 0 15px;
+      border: none; border-radius: 50%; display: flex;
+      align-items: center; justify-content: center;
+      font-size: 0.75rem; color: #fff; cursor: pointer;
+      transition: transform .3s;
+    }
+    .nav-btn:nth-child(1) { background: #e74c3c; }
+    .nav-btn:nth-child(2) { background: #3498db; }
+    .nav-btn:nth-child(3) { background: #f1c40f; }
+    .nav-btn:hover { transform: scale(1.2); }
+    .nav-btn.active { outline: 3px solid #fff; }
+    main { padding-top: 110px; }
+    .page { display: none; padding: 20px; }
+    .page.active { display: block; }
+
+    #calendar {
+      max-width: 800px; margin: auto;
+      background: #FFDAB3; padding: 20px; border-radius: 8px;
+    }
+    #calendar h2 { text-align: center; margin-bottom: 10px; }
+    #calendar table { width: 100%; border-collapse: separate; border-spacing: 5px; margin-bottom: 30px; }
+    #calendar caption { font-size: 1.2rem; margin-bottom: 5px; }
+    #calendar th, #calendar td {
+      padding: 10px; text-align: center;
+      border: 1px solid hsl(0, 0%, 80%); border-radius: 4px;
+    }
+    #calendar td { background: #ffffff; cursor: pointer; }
+    #calendar td.selected { background: red !important; color: #fff; }    /* seçtiğimiz gün kırmızı renk olur */
+    #schedule-container {
+      max-width: 800px; margin: 20px auto;
+      background: #fff; padding: 20px; border-radius: 8px;
+      display: none;
+    }
+    .schedule-panel h3 { text-align: center; margin-bottom: 10px; }
+    .time-slot { display: flex; align-items: center; margin-bottom: 8px; }
+    .time-label { width: 120px; }
+    .line {
+      flex-shrink: 0; width: 200px; height: 4px;
+      background: #999; margin: 0 10px; cursor: pointer;
+    }
+    .note { flex: 1; font-style: italic; }
+
+    /* Alarm Paneli */
+    #alarm.page.active { background: red; color: #fff; }
+    #alarm {
+      max-width: 400px; margin: auto;
+      padding: 20px; border-radius: 8px;
+    }
+    #alarm h2 { text-align: center; margin-bottom: 15px; }
+    #alarm form { display: flex; flex-direction: column; }
+    #alarm label { margin-top: 10px; color: #fff; }
+    #alarm input { padding: 8px; margin-top: 5px; border: none; border-radius: 4px; }
+    #alarm button {
+      padding: 10px; margin-top: 15px;
+      border: none; border-radius: 4px;
+      background: #fff; color: red; cursor: pointer;
+    }
+    #alarm-status { margin-top: 10px; color: #fff; font-size: 0.9rem; }
+
+    /* Danışanlar Paneli */
+    #clients { background: #add8e6; padding-bottom: 40px; }
+    #clients-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px,1fr));
+      gap: 10px; max-width: 600px; margin: 40px auto;
+    }
+    .client-btn {
+      padding: 10px; border: none; border-radius: 8px;
+      color: #fff; cursor: pointer; transition: transform .2s;
+    }
+    .client-btn:hover { transform: scale(1.05); }
+    #client-details {
+      max-width: 400px; margin: 20px auto;
+      padding: 20px; background: #fff;
+      border: 1px solid #ccc; border-radius: 8px;
+      display: none; text-align: center;
+    }
+    #client-details h3 { margin-bottom: 15px; }
+    .photo-btn {
+      width: 80px; height: 80px; border-radius: 50%;
+      border: 2px dashed #888; background: transparent;
+      cursor: pointer; margin-bottom: 10px;
+    }
+    .photo-btn img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+    .email-link { display: block; margin-bottom: 15px; color: #3498db; text-decoration: none; }
+    .detail-buttons button {
+      margin: 5px; padding: 8px 12px; border: none;
+      border-radius: 4px; background: #3498db;
+      color: #fff; cursor: pointer; transition: background .3s;
+    }
+    .detail-buttons button:hover { background: #1e7dbd; }
+    .detail-note {
+      margin-top: 10px; text-align: left;
+      font-size: 0.9rem; border-top: 1px solid #ccc;
+      padding-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <nav class="top-bar">
+    <button class="nav-btn active" data-target="calendar">Takvim</button>
+    <button class="nav-btn" data-target="alarm">Alarm</button>
+    <button class="nav-btn" data-target="clients">Danışanlar</button>
+  </nav>
+  <main>
+    <section id="calendar" class="page active">
+      <h2>Takvim</h2>
+      <div id="calendar-container"></div>
+      <div id="schedule-container"></div>
+    </section>
+    <section id="alarm" class="page">
+      <h2>Alarm</h2>
+      <form id="alarm-form">
+        <label for="alarm-date">Tarih:</label>
+        <input type="date" id="alarm-date" required>
+        <label for="alarm-time">Saat (HH:MM):</label>
+        <input type="time" id="alarm-time" required>
+        <button type="submit">Alarm Kur</button>
+        <span id="alarm-status"></span>
+      </form>
+    </section>
+    <section id="clients" class="page">
+      <h2>Danışanlar</h2>
+      <div id="clients-list"></div>
+      <div id="client-details"></div>
+    </section>
+  </main>
+  <script>
+   
+    let calendarInitialized = false;
+    let clientsInitialized = false;  // yalnız bir kez çalışması
+    let selectedCell = null;  // son tutulan günü tutuyor
+    
+    const turkishNames = ['Yakup Karabulut','Ebubekir Yeniçırak','Caner Kurt','Ali Şahin','Elif Çetin','Ahmet Öz','Zeynep Acar','Mustafa Koç','Nur Güneş','Emre Aydın','Merve Bulut','Kerem Polat','Seda Keskin','Berk Yıldız','Pelinsu Karaca'];
+    const colors = ['#f28b82','#fbbc04','#fff475','#ccff90','#a7ffeb','#cbf0f8','#aecbfa','#d7aefb','#fdcfe8','#e6c9a8','#e8eaed','#f8e6c9','#cdf1f9','#f9e4d7','#d0f4de'];
+
+   
+    document.querySelectorAll('.nav-btn').forEach(btn => btn.addEventListener('click', () => {
+      document.querySelector('.nav-btn.active').classList.remove('active');
+      btn.classList.add('active');
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById(btn.dataset.target).classList.add('active');
+      if (btn.dataset.target === 'calendar' && !calendarInitialized) {   // Takvim veya danışanları ilk kez yüklüyorsa çağır
+        ['Nisan','Mayıs','Haziran'].forEach((m,i) => generateCalendar(new Date().getFullYear(), i+3, m));
+        calendarInitialized = true;
+      }
+      if (btn.dataset.target === 'clients' && !clientsInitialized) { generateClients(); clientsInitialized = true; }
+      if (btn.dataset.target === 'alarm') document.getElementById('schedule-container').style.display = 'none'; // Alarm seçildiğinde takvim panelini kapat
+    }));
+
+    // Takvim Fonksiyonları
+    function generateCalendar(year, month, name) {
+      const container = document.getElementById('calendar-container');
+      const date = new Date(year, month, 1);
+      const table = document.createElement('table');
+      const caption = document.createElement('caption'); caption.textContent = name;
+      table.appendChild(caption);
+      const headerRow = document.createElement('tr');
+      ['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'].forEach(d => {
+        const th = document.createElement('th'); th.textContent = d;
+        headerRow.appendChild(th);
+      });
+      table.appendChild(headerRow);
+      let row = document.createElement('tr');
+      for (let i = 0; i < (date.getDay() + 6) % 7; i++) row.appendChild(document.createElement('td'));
+      while (date.getMonth() === month) {
+        if (row.children.length === 7) { table.appendChild(row); row = document.createElement('tr'); }
+        const dayNum = date.getDate();
+        const cell = document.createElement('td'); cell.textContent = dayNum;
+        cell.addEventListener('click', () => selectDay(cell, dayNum, month, year));
+        row.appendChild(cell);
+        date.setDate(dayNum + 1);
+      }
+      while (row.children.length < 7) row.appendChild(document.createElement('td'));
+      table.appendChild(row);
+      container.appendChild(table);
+    }
+
+    function selectDay(cell, day, month, year) {
+      if (selectedCell) selectedCell.classList.remove('selected');  // Önceki seçili gün varsa üstündeki kırmızı işareti kaldırı
+      cell.classList.add('selected'); selectedCell = cell;   // Tıkladığın günün üzerine kırmızı arkaplan verir ve onu “seçili” olarak hatırlar.
+      showSchedule(day, month, year);
+    }
+
+    function showSchedule(day, month, year) {  // Bir gün seçildiğinde, alt kısımda “o günün programını” göstermek için.
+      const container = document.getElementById('schedule-container'); container.innerHTML = '';  // Alt kısımdaki eskiden varsa not panelini tamamen temizler
+      const panel = document.createElement('div'); panel.classList.add('schedule-panel');  // Yeni bir kutu (div) oluşturur; içine notları yerleştireceğiz
+      const title = document.createElement('h3'); title.textContent = `${day}/${month+1}/${year} Plan`; panel.appendChild(title);
+      for (let h = 5; h <= 23; h++) {
+        const slot = document.createElement('div'); slot.classList.add('time-slot');
+        const nextHour = (h + 1) % 24;
+        const label = document.createElement('span'); label.classList.add('time-label');
+        label.textContent = `${String(h).padStart(2,'0')}:00-${String(nextHour).padStart(2,'0')}:00`;
+        const line = document.createElement('span'); line.classList.add('line');
+        const noteElem = document.createElement('span'); noteElem.classList.add('note');
+        line.addEventListener('click', () => {
+          const key = `note-${year}-${month+1}-${day}-${h}`;
+          const noteText = prompt('Notunuzu girin:', localStorage.getItem(key) || '');
+          if (noteText !== null) { localStorage.setItem(key, noteText); noteElem.textContent = noteText; }
+        });
+        const saved = localStorage.getItem(`note-${year}-${month+1}-${day}-${h}`);
+        if (saved) noteElem.textContent = saved;
+        slot.append(label, line, noteElem);
+        panel.appendChild(slot);
+      }
+      container.appendChild(panel);
+      container.style.display = 'block';
+      container.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // Alarm Fonksiyonları
+    const alarmForm = document.getElementById('alarm-form');
+    const alarmDateInput = document.getElementById('alarm-date');
+    const alarmTimeInput = document.getElementById('alarm-time');
+    const alarmStatus = document.getElementById('alarm-status');
+    let alarmTimeout = null;
+    alarmForm.addEventListener('submit', e => {
+      e.preventDefault();  // Formun sayfayı yenileyerek gönderilmesini engeller.
+      const dateVal = alarmDateInput.value;
+      const timeVal = alarmTimeInput.value;
+      if (!dateVal || !timeVal) { alarmStatus.textContent = 'Lütfen tarih ve saat seçin.'; return; }
+      const alarmDT = new Date(`${dateVal}T${timeVal}:00`);
+      const now = new Date();
+      if (alarmDT <= now) { alarmStatus.textContent = 'Lütfen gelecekte bir zaman seçin.'; return; }
+      clearTimeout(alarmTimeout);
+      alarmTimeout = setTimeout(() => { alert('Alarm zamanı geldi!'); alarmStatus.textContent = ''; }, alarmDT - now);
+      alarmStatus.textContent = `Alarm ${alarmDT.toLocaleString()} için ayarlandı.`;
+    });
+
+    // Danışanlar Fonksiyonları
+    function generateClients() {
+      const list = document.getElementById('clients-list');
+      turkishNames.forEach((name, idx) => {
+        const btn = document.createElement('button');
+        btn.textContent = name; btn.classList.add('client-btn');
+        btn.style.background = colors[idx % colors.length];
+        const email = name.toLowerCase().replace(/\s+/g, '.') + '@example.com';
+        btn.addEventListener('click', () => showClientDetails(name, email));
+        list.appendChild(btn);
+      });
+    }
+
+    function showClientDetails(name, email) {
+      const details = document.getElementById('client-details');
+      details.innerHTML = '';
+      // İsim Başlığı
+      const title = document.createElement('h3'); title.textContent = name;
+      details.appendChild(title);
+      // Fotoğraf Butonu ve Yükleme
+      const photoBtn = document.createElement('button'); photoBtn.classList.add('photo-btn');
+      const fileInput = document.createElement('input'); fileInput.type = 'file'; fileInput.accept = 'image/*'; fileInput.style.display = 'none';
+      photoBtn.addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', e => {
+        const img = document.createElement('img'); img.src = URL.createObjectURL(e.target.files[0]);
+        photoBtn.innerHTML = ''; photoBtn.appendChild(img);
+      });
+      details.appendChild(photoBtn);
+      details.appendChild(fileInput);
+      // Email Linki
+      const link = document.createElement('a');
+      link.href = 'https://www.example.com';
+      link.textContent = email;
+      link.target = '_blank';
+      link.classList.add('email-link');
+      details.appendChild(link);
+      // Butonlar: Geçmiş İşlemleri & Özellikleri
+      const btnContainer = document.createElement('div'); btnContainer.classList.add('detail-buttons');
+      const historyBtn = document.createElement('button'); historyBtn.textContent = 'Geçmiş İşlemleri';
+      const propsBtn = document.createElement('button'); propsBtn.textContent = 'Özellikleri';
+      btnContainer.append(historyBtn, propsBtn);
+      details.appendChild(btnContainer);
+      // Not Panelleri
+      const historyNote = document.createElement('div'); historyNote.id = `history-note-${name}`; historyNote.classList.add('detail-note');
+      const propsNote = document.createElement('div'); propsNote.id = `props-note-${name}`; propsNote.classList.add('detail-note');
+      details.appendChild(historyNote);
+      details.appendChild(propsNote);
+      // Event Handlers for Notes
+      historyBtn.addEventListener('click', () => {
+        const key = `history-${name}`;
+        const noteText = prompt('Geçmiş işlemler notunuzu girin:', localStorage.getItem(key) || '');
+        if (noteText !== null) { localStorage.setItem(key, noteText); historyNote.textContent = noteText; }
+      });
+      propsBtn.addEventListener('click', () => {
+        const key = `props-${name}`;
+        const noteText = prompt('Özellikler notunuzu girin:', localStorage.getItem(key) || '');
+        if (noteText !== null) { localStorage.setItem(key, noteText); propsNote.textContent = noteText; }
+      });
+      // Load Existing Notes
+      historyNote.textContent = localStorage.getItem(`history-${name}`) || '';
+      propsNote.textContent = localStorage.getItem(`props-${name}`) || '';
+      // Göster
+      details.style.display = 'block';
+      details.scrollIntoView({ behavior: 'smooth' });
+    }
+
+  </script>
+</body>
+</html>
